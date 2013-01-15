@@ -1,0 +1,25 @@
+SubDir TOP comp ;
+
+CCFLAGS = -W -Wall -g ;
+
+rule Leg {
+	DEPENDS $(<) : $(>) ;
+	Clean clean : $(<) ;
+}
+
+actions Leg {
+	leg -o$(<) $(>)
+}
+
+rule UserObject {
+	switch $(>:S)
+	{
+		case .leg :
+			Cc $(<) : $(<:S=.c) ;
+			Leg $(<:S=.c) : $(>) ;
+		case * :
+			ECHO "unknown suffix on" $(>) ;
+	}
+}
+
+Main expr : expr.leg ;

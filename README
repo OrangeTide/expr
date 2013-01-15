@@ -1,0 +1,29 @@
+Expr: A primitive peg/leg grammar to parse arithmetic expressions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Requirements
+============
+
+peg/leg - http://piumarta.com/software/peg
+jam - http://public.perforce.com/wiki/Jam
+
+* you can use build.sh script if you don't have jam.
+
+Building
+========
+
+$ jam
+or
+$ ./build.sh
+
+Files
+=====
+
+test_expr.sh
+------------
+
+Please run the unit test script if anything is added or changed.
+
+expr.leg
+--------
+
+The grammar with the C utility functions embedded in the peg/leg grammar.

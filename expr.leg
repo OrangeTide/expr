@@ -1,0 +1,98 @@
+# Copyright (c) 2011-2013, Jon Mayo <jon@rm-f.net>
+#
+# Permission to use, copy, modify, and distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+%{
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <limits.h>
+
+#define YYSTYPE struct num
+#define YY_INPUT(buf, result, max_size)			\
+	{						\
+	result = !*instr ? 0 : (*(buf) = *instr++, 1);		\
+	}
+
+struct num {
+	long n;
+};
+
+static const char *instr;
+static int error_flag;
+
+static int div_check(long a, long b)
+{
+	return !b || (a == LONG_MIN && b == -1);
+}
+%}
+
+stmt = WS i:expr EOF			{ $$ = i; }
+	| .				{ error_flag = 1; }
+NUM =
+	( < '0x' [0-9a-fA-F]+ > WS		{
+		long t = strtol(yytext, 0, 16);
+		if ((t == LONG_MAX || t == LONG_MIN) && errno == ERANGE)
+			error_flag = 1;
+		else
+			$$.n = t; }
+	| '0b' < [01]+ > WS	{ $$.n = strtol(yytext, 0, 2); }
+	| '0' < [0-7]+ > WS	{ $$.n = strtol(yytext, 0, 8); }
+	| < ('+' | '-')? [0-9]+ > WS		{
+		long t = strtol(yytext, 0, 10);
+		if ((t == LONG_MAX || t == LONG_MIN) && errno == ERANGE)
+			error_flag = 1;
+		else
+			$$.n = t;
+	})
+expr = l:term
+	( '+' WS r:term			{ l.n = l.n + r.n; }
+	| '-' WS r:term			{ l.n = l.n - r.n; }
+	)*				{ $$ = l; }
+term = l:factor
+	( '*' WS r:factor		{ l.n = l.n * r.n; }
+	| '/' WS r:factor		{ if (div_check(l.n, r.n)) error_flag = 1; else l.n = l.n / r.n; }
+	| '%' WS r:factor		{ if (div_check(l.n, r.n)) error_flag = 1; else l.n = l.n % r.n; }
+	)*				{ $$ = l; }
+factor = i:NUM | ( '(' WS i:expr ')' WS )	{ $$ = i; }
+WS = [ \t\r\n]*
+EOF = !.
+
+%%
+static struct num expr(const char *s)
+{
+	error_flag = 0;
+	instr = s;
+	yy.n = -1;
+	while (yyparse())
+		;
+	if (error_flag) {
+		yy.n = -1;
+	}
+	return yy;
+}
+
+int main(int argc, char **argv)
+{
+	struct num n;
+	int i;
+
+	for (i = 1; i < argc; i++) {
+		n = expr(argv[1]);
+		if (error_flag) {
+			fprintf(stdout, "ERROR = %s\n", argv[i]);
+			return 1;
+		}
+		fprintf(stdout, "%ld = %s\n", n.n, argv[i]);
+	}
+	return 0;
+}
